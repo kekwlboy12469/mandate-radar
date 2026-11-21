@@ -3,7 +3,7 @@ Mandate Radar FastAPI Backend Server
 Track: Neo4j (Best Use of Neo4j) - Fintech Track Solution
 """
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -30,6 +30,8 @@ app = FastAPI(
     description="Deterministic Auto-Debit Mandate Detection & Neo4j Knowledge Graph Engine",
     version="2.0.0"
 )
+
+api_router = APIRouter()
 
 # Enable CORS for Vite frontend
 app.add_middleware(
@@ -77,7 +79,7 @@ class Neo4jConnectRequest(BaseModel):
     user: str = "neo4j"
     password: str
 
-@app.get("/api/info")
+@api_router.get("/info")
 def get_api_info():
     return {
         "service": "Mandate Radar API",
@@ -87,14 +89,7 @@ def get_api_info():
         "reference_merchants_count": len(REFERENCE_MERCHANTS)
     }
 
-@app.get("/")
-def root():
-    index_path = os.path.join(frontend_dist, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return get_api_info()
-
-@app.get("/api/health")
+@api_router.get("/health")
 def health_check():
     return {
         "status": "healthy",
@@ -105,7 +100,7 @@ def health_check():
         "payment_mechanisms_modeled": len(PAYMENT_MECHANISMS)
     }
 
-@app.get("/api/statement/synthetic")
+@api_router.get("/statement/synthetic")
 def get_synthetic_dataset():
     """Returns the synthetic 12-month statement, usage telemetry, and notifications."""
     return {
@@ -116,7 +111,7 @@ def get_synthetic_dataset():
         "ground_truth_hard_negatives": GROUND_TRUTH_HARD_NEGATIVES
     }
 
-@app.post("/api/analyze")
+@api_router.post("/analyze")
 def run_analysis(payload: AnalyzeRequest):
     """
     Main detection endpoint: Processes statement transactions with deterministic rules,
@@ -158,7 +153,7 @@ def run_analysis(payload: AnalyzeRequest):
 
     return analysis_result
 
-@app.post("/api/upload-csv")
+@api_router.post("/upload-csv")
 async def upload_statement_csv(file: UploadFile = File(...)):
     """
     Parses an uploaded bank statement CSV file with dynamic column mapping,
@@ -245,7 +240,7 @@ async def upload_statement_csv(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to parse statement: {str(e)}")
 
-@app.post("/api/generate-email")
+@api_router.post("/generate-email")
 def generate_cancellation_email(req: EmailDraftRequest):
     """
     Generates legally robust, mechanism-specific cancellation notice
@@ -340,19 +335,19 @@ Sincerely,
         "mechanism": req.mechanism
     }
 
-@app.get("/api/graph")
+@api_router.get("/graph")
 def get_graph_data(mode: str = "portfolio"):
     """Returns nodes and edges for the Neo4j Graph Visualizer."""
     return neo4j_graph.get_graph_visualization_data(filter_mode=mode)
 
-@app.post("/api/graph/cypher")
+@api_router.post("/graph/cypher")
 def execute_cypher_query(req: CypherQueryRequest):
     """Executes a Cypher query on Neo4j (live Aura or embedded engine)."""
     if not req.query.strip():
         raise HTTPException(status_code=400, detail="Cypher query cannot be empty.")
     return neo4j_graph.run_cypher_query(req.query)
 
-@app.get("/api/graph/seed")
+@api_router.get("/graph/seed")
 def download_cypher_seed():
     """Generates and returns the complete Cypher seed script (.cql)."""
     script = neo4j_graph.generate_cypher_seed_script()
@@ -363,7 +358,7 @@ def download_cypher_seed():
         "line_count": len(script.splitlines())
     }
 
-@app.post("/api/neo4j/connect")
+@api_router.post("/neo4j/connect")
 def connect_neo4j(req: Neo4jConnectRequest):
     """Connects to live Neo4j Aura or local instance."""
     success, message = neo4j_graph.connect(req.uri, req.user, req.password)
@@ -374,7 +369,7 @@ def connect_neo4j(req: Neo4jConnectRequest):
         "uri": req.uri
     }
 
-@app.get("/api/benchmark")
+@api_router.get("/benchmark")
 def run_benchmark():
     """
     Evaluates detector against ground truth planted events.
@@ -433,10 +428,21 @@ def run_benchmark():
         "hard_negatives_evaluated": GROUND_TRUTH_HARD_NEGATIVES
     }
 
+# Include API routes with both /api prefix and root prefix for seamless Vercel & local execution
+app.include_router(api_router, prefix="/api")
+app.include_router(api_router, prefix="")
+
 # Mount Frontend Static Assets
 frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
 if os.path.exists(frontend_dist):
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
+
+    @app.get("/")
+    def serve_root():
+        index_file = os.path.join(frontend_dist, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        return get_api_info()
 
     @app.get("/{full_path:path}")
     def serve_frontend(full_path: str):

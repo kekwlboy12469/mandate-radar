@@ -9,6 +9,7 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Neo4j](https://img.shields.io/badge/Neo4j-Graph_Database-008CC1?logo=neo4j&logoColor=white)](https://neo4j.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fkekwlboy12469%2Fmandate-radar)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 *Money leaves bank accounts every month for recurring commitments people forgot they agreed to. Mandate Radar discovers them, resolves raw statement descriptors via a Neo4j knowledge graph, catches stealth price increases, and guides users through the correct mechanism-specific revocation path.*
