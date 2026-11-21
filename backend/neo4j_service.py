@@ -302,7 +302,24 @@ class Neo4jKnowledgeGraph:
                 "data": list(parent_groups.values())
             }
 
-        # 2. Cancellation route by mechanism query
+        # 2. Cancellation route or SLA by mechanism query
+        if "REGULATOR" in cypher_upper or "SLA" in cypher_upper:
+            slas = []
+            for code, info in PAYMENT_MECHANISMS.items():
+                slas.append({
+                    "PaymentRail": info["name"],
+                    "Regulator": info.get("authority", "RBI / CCPA"),
+                    "StatutorySLA": info.get("turnaround_time", "Immediate"),
+                    "EscalationTier": "Tier 1 Merchant -> Tier 2 Bank Dispute -> Tier 3 RBI CMS"
+                })
+            return {
+                "mode": "EMBEDDED_GRAPH_ENGINE",
+                "status": "SUCCESS",
+                "cypher": cypher,
+                "count": len(slas),
+                "data": slas
+            }
+
         if "MECHANISM" in cypher_upper or "BILLED_VIA" in cypher_upper or "CANCELLED_BY" in cypher_upper:
             mech_routes = []
             for m in REFERENCE_MERCHANTS:
